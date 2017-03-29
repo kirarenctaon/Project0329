@@ -5,6 +5,8 @@ import java.awt.Choice;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.io.BufferedReader;
@@ -21,7 +23,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
-public class GamePanel extends JPanel implements ItemListener{
+public class GamePanel extends JPanel implements ItemListener, Runnable, ActionListener{
 	GameWindow gameWindow;
 	
 	JPanel p_west; // 왼쪽 컨트롤 영역
@@ -40,6 +42,9 @@ public class GamePanel extends JPanel implements ItemListener{
 	
 	//조사한 단어를 담아놓자! 게임에 써먹기 위해
 	ArrayList<String> wordList=new ArrayList<String>();
+	Thread thread;// 단어게임을 진행할 쓰레드
+	boolean flag=true;
+	ArrayList<Word> words=new ArrayList<Word>();
 	
 	public GamePanel(GameWindow gameWindow) {
 		this.gameWindow=gameWindow;
@@ -50,8 +55,17 @@ public class GamePanel extends JPanel implements ItemListener{
 		//이 영역은 지금부터 그림을 그릴 영역, 내부 익명스트일로 표현
 		p_center = new JPanel(){
 			@Override
-			public void paint(Graphics g) {
-				g.drawString("고등어", 200, 500);
+			public void paintComponent(Graphics g) { //paintComponent
+				//기존 그림 지우기
+				g.setColor(Color.WHITE);
+				g.fillRect(0, 0, 750, 700);
+				g.setColor(Color.BLUE);
+			    //g.drawString("고등어", 0, y);
+				
+				//모든 워드들에 대한 render호출
+				for(int i=0;i<words.size();i++){
+					words.get(i).render(g);
+				}
 			}
 		};
 		
@@ -79,6 +93,10 @@ public class GamePanel extends JPanel implements ItemListener{
 		add(p_west, BorderLayout.WEST);
 		add(p_center, BorderLayout.CENTER);
 		
+		//버튼과 리스너 연결
+		bt_start.addActionListener(this);
+		bt_pause.addActionListener(this);
+		
 		setVisible(false); //최조에 등장 안함
 		setPreferredSize(new Dimension(900, 700));
 		
@@ -88,7 +106,7 @@ public class GamePanel extends JPanel implements ItemListener{
 	//초이스 컴포넌트에 채워질 파일명 조사하기
 	public void getCategory(){
 		File file=new File(res);
-		File[] files=file.listFiles(); //파알+디렉토리 섞여있는 배열반환
+		File[] files=file.listFiles(); //파일+디렉토리 섞여 있는 배열반환
 		
 		for(int i=0;i<files.length;i++){
 			if(files[i].isFile()){
@@ -120,9 +138,11 @@ public class GamePanel extends JPanel implements ItemListener{
 					data=buffer.readLine();//한줄
 					if(data==null)break;
 					System.out.println(data);
+					
 					wordList.add(data);
-				}
-				
+				}	
+				//준비된 단어를 화면에 보여주기
+				createWord();
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();
 			} catch (IOException e) {
@@ -153,9 +173,63 @@ public class GamePanel extends JPanel implements ItemListener{
 		}
 	}
 	
+	public void createWord(){
+		for(int i=0;i<wordList.size();i++){
+			String name=wordList.get(i);
+			Word word = new Word(name, (i*75)+10, 100);
+			words.add(word); //워드 객체 명단 만들기
+		}	
+	}
+	
+	//게임시작
+	public void startGame(){
+		if(thread==null){
+			thread = new Thread(this);//Runnable의 run이 아닌 패널의 run을 움직이게함
+			thread.start();
+		}
+	}
+	
+	//게임중지
+	public void pauseGame(){
+	
+	}
+		
+	//단어 내려오는 효과. 모든 단어들의 y값 증가시키고, p_center패널로 하여금 그림을 다시 그리게 유도함
+	//public void down(){	} //객체 지향이라 필요없으니까 지우자
+
 	@Override
 	public void itemStateChanged(ItemEvent e) {
 		//System.out.println("나 바꿨어?");
 		getWord();
+	}
+	
+	@Override
+	public void actionPerformed(ActionEvent e) {
+		Object obj=e.getSource();
+		
+		if(obj==bt_start){
+			startGame();
+		}else if(obj==bt_pause){
+			
+		}
+	}
+	
+	@Override
+	public void run() {
+		while(true){
+			try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			//down(); 객체 지향이라 필요없으니까 지우자
+			//모든 단어들에 대해서 tick();
+			
+			for(int i=0;i<words.size();i++){
+				words.get(i).tick();
+			}
+			//모든 단어들에 대해서 render();를 못부르니까 repaint()로 간접호출
+			p_center.repaint();
+		}
 	}
 }
