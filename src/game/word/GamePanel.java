@@ -9,6 +9,9 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -33,7 +36,7 @@ public class GamePanel extends JPanel implements ItemListener, Runnable, ActionL
 	JLabel la_score; //게임 점수
 	Choice choice; //단어 선택 드랍박스
 	JTextField t_input; //게임입력창
-	JButton bt_start, bt_pause; //게임시작 버튼
+	JButton bt_start, bt_pause, bt_stop; //게임시작 버튼
 	String res="C:/java_workspace/project0329/res/";
 	
 	FileInputStream fis;
@@ -43,8 +46,10 @@ public class GamePanel extends JPanel implements ItemListener, Runnable, ActionL
 	//조사한 단어를 담아놓자! 게임에 써먹기 위해
 	ArrayList<String> wordList=new ArrayList<String>();
 	Thread thread;// 단어게임을 진행할 쓰레드
-	boolean flag=true;
 	ArrayList<Word> words=new ArrayList<Word>();
+	
+	boolean flag=true;
+	boolean isDown=true;
 	
 	public GamePanel(GameWindow gameWindow) {
 		this.gameWindow=gameWindow;
@@ -75,7 +80,8 @@ public class GamePanel extends JPanel implements ItemListener, Runnable, ActionL
 		t_input = new JTextField(12); 
 		bt_start = new JButton("start");
 		bt_pause = new JButton("pause");
-		
+		bt_stop = new JButton("stop");
+	
 		p_west.setPreferredSize(new Dimension(150, 700));
 		p_west.setBackground(Color.ORANGE);
 		
@@ -88,6 +94,7 @@ public class GamePanel extends JPanel implements ItemListener, Runnable, ActionL
 		p_west.add(t_input);
 		p_west.add(bt_start);
 		p_west.add(bt_pause);
+		p_west.add(bt_stop);
 		p_west.add(la_score);
 		
 		add(p_west, BorderLayout.WEST);
@@ -96,6 +103,28 @@ public class GamePanel extends JPanel implements ItemListener, Runnable, ActionL
 		//버튼과 리스너 연결
 		bt_start.addActionListener(this);
 		bt_pause.addActionListener(this);
+		bt_stop.addActionListener(this);
+		
+		//텍스트 필드와 리스너 연결
+		t_input.addKeyListener(new KeyAdapter() {
+		
+			@Override
+			public void keyReleased(KeyEvent e) {
+				if(e.getKeyCode()==KeyEvent.VK_ENTER){
+					//System.out.println("키눌렀어?");
+					//화면에 존재하는 words와 입력값 비교하여 같으면  words에서 객체 삭제
+					String value=t_input.getText();
+					for(int i=0;i<words.size();i++){ //wordList는 모아둔것일뿐이므로 객체넣어둔 words랑 비교해야함
+						if(words.get(i).name.equals(value)){
+							words.remove(i);
+							t_input.setText("");
+						}
+						
+					}
+				}
+			}
+		}); 
+		
 		
 		setVisible(false); //최조에 등장 안함
 		setPreferredSize(new Dimension(900, 700));
@@ -125,22 +154,27 @@ public class GamePanel extends JPanel implements ItemListener, Runnable, ActionL
 		
 		if(index!=0){//첫번째 요소는 빼자
 			String name=choice.getSelectedItem();
-			System.out.println(res+name);
+			//System.out.println(res+name);
 			
 			try {
 				fis = new FileInputStream(res+name);
 				reader = new InputStreamReader(fis, "utf-8");
+				
 				//스트림 버퍼 처리 수준까지 올림
 				buffer=new BufferedReader(reader); //버퍼는 우리눈에는 보이지 않는 /n을 기준으로 구분함
 				
 				String data;
+				//기존의 wordList를 비운다!!
+				wordList.removeAll(wordList);
+				
 				while(true){
 					data=buffer.readLine();//한줄
 					if(data==null)break;
-					System.out.println(data);
+					//System.out.println(data);
 					
 					wordList.add(data);
 				}	
+				System.out.println("현재까지 wordList는"+wordList.size());
 				//준비된 단어를 화면에 보여주기
 				createWord();
 			} catch (FileNotFoundException e) {
@@ -184,15 +218,32 @@ public class GamePanel extends JPanel implements ItemListener, Runnable, ActionL
 	//게임시작
 	public void startGame(){
 		if(thread==null){
+			flag=true;//while문 작동하도록
 			thread = new Thread(this);//Runnable의 run이 아닌 패널의 run을 움직이게함
 			thread.start();
 		}
 	}
 	
-	//게임중지
+	//게임중지 or 계속
 	public void pauseGame(){
-	
+		isDown=!isDown;
 	}
+	
+	/* 게임종료시 필요한 행동강령!! (rollback처럼 처음으로 돌아가자)
+		 1. wordList(단어들이 들어있는 배열) 비우기
+		 2. words(Word인스턴스들이 들어있는 배열) 비우기
+		 3. choice 초기화 (index=0)
+		 4. flag=false
+		 5. thread를 null로 다시 초기화
+	 */
+	public void stopGame(){
+		wordList.removeAll(wordList); // 1. wordList(단어들이 들어있는 배열) 비우기
+		words.removeAll(words); //2. words(Word인스턴스들이 들어있는 배열) 비우기
+		choice.select(0); //첫번째 요소 강제 선택  3. choice 초기화 (index=0) 
+		flag=false;  //while문 중지 목저  4. flag=false 
+		thread=null;
+	}
+	
 		
 	//단어 내려오는 효과. 모든 단어들의 y값 증가시키고, p_center패널로 하여금 그림을 다시 그리게 유도함
 	//public void down(){	} //객체 지향이라 필요없으니까 지우자
@@ -210,13 +261,15 @@ public class GamePanel extends JPanel implements ItemListener, Runnable, ActionL
 		if(obj==bt_start){
 			startGame();
 		}else if(obj==bt_pause){
-			
+			pauseGame();
+		}else if(obj==bt_stop){
+			stopGame();
 		}
 	}
 	
 	@Override
 	public void run() {
-		while(true){
+		while(flag){
 			try {
 				Thread.sleep(500);
 			} catch (InterruptedException e) {
@@ -225,11 +278,13 @@ public class GamePanel extends JPanel implements ItemListener, Runnable, ActionL
 			//down(); 객체 지향이라 필요없으니까 지우자
 			//모든 단어들에 대해서 tick();
 			
-			for(int i=0;i<words.size();i++){
-				words.get(i).tick();
+			if(isDown){
+				for(int i=0;i<words.size();i++){
+					words.get(i).tick();
+				}
+				//모든 단어들에 대해서 render();를 못부르니까 repaint()로 간접호출
+				p_center.repaint();
 			}
-			//모든 단어들에 대해서 render();를 못부르니까 repaint()로 간접호출
-			p_center.repaint();
 		}
 	}
 }

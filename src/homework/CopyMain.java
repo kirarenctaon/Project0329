@@ -61,6 +61,7 @@ public class CopyMain extends JFrame implements ActionListener, Runnable{
 		setVisible(true);
 		setLocationRelativeTo(null);
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
+		bar.setStringPainted(true);
 	}
 	
 	@Override

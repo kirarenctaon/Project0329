@@ -28,7 +28,7 @@ public class Word {
 	}
 	
 	//그 반영된 데이터를 이용하여 화면에 그리기
-	public void render(Graphics g){
+	public void render(Graphics g){//Graphics g는 컴포넌트의 g, 앞으로 자바를 하면서 나만의 객체를 그려지게 하려면 컴포넌트의 g를 가져야한다. 
 		g.drawString(name, x, y); //객체지향이니까 그림은 패널이 그려주는게 아니라 스스로 그려야함
 	}
 	
